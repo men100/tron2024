@@ -33,7 +33,7 @@
 		<link>
 			<name>mtk3_bsp2</name>
 			<type>2</type>
-			<location>C:/dev/git/tron2024/mtk3_bsp2</location>
+			<location>$%7BPARENT-1-PROJECT_LOC%7D/mtk3_bsp2</location>
 		</link>
 	</linkedResources>
 </projectDescription>
