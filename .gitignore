@@ -37,3 +37,6 @@
 *.elf
 *.list
 *.map
+
+# Intermidiate files
+*.mk
