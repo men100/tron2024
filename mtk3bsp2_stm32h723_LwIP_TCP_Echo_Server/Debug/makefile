@@ -112,6 +112,7 @@ RM := rm -rf
 -include Middlewares/LwIP/Api/subdir.mk
 -include Drivers/STM32H7xx_HAL_Driver/Src/subdir.mk
 -include Drivers/BSP/STM32H743ZI-Nucleo/subdir.mk
+-include Drivers/BSP/Components/subdir.mk
 -include Core/Startup/subdir.mk
 -include Core/Src/subdir.mk
 -include Application/subdir.mk

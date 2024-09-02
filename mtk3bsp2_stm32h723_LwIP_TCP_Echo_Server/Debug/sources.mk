@@ -25,6 +25,7 @@ SUBDIRS := \
 Application \
 Core/Src \
 Core/Startup \
+Drivers/BSP/Components \
 Drivers/BSP/STM32H743ZI-Nucleo \
 Drivers/STM32H7xx_HAL_Driver/Src \
 Middlewares/LwIP/Api \

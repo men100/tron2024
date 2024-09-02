@@ -36,6 +36,11 @@
 			<location>$%7BPARENT-1-PROJECT_LOC%7D/mtk3_bsp2</location>
 		</link>
 		<link>
+			<name>Drivers/BSP/Components/lan8742.c</name>
+			<type>1</type>
+			<locationURI>$%7BPARENT-1-PROJECT_LOC%7D/Drivers/BSP/Components/lan8742/lan8742.c</locationURI>
+		</link>
+		<link>
 			<name>Drivers/BSP/STM32H743ZI-Nucleo/stm32h7xx_nucleo.c</name>
 			<type>1</type>
 			<locationURI>$%7BPARENT-1-PROJECT_LOC%7D/Drivers/BSP/STM32H7xx_Nucleo/stm32h7xx_nucleo.c</locationURI>

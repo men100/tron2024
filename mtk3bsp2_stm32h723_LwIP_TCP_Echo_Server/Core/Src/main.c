@@ -22,7 +22,18 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "lwip/opt.h"
+#include "lwip/init.h"
+#include "netif/etharp.h"
+#include "lwip/netif.h"
+#include "lwip/timeouts.h"
+#if LWIP_DHCP
+#include "lwip/dhcp.h"
+#endif
+#include "ethernetif.h"
+#include "main.h"
+#include "app_ethernet.h"
+#include "tcp_echoserver.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -70,7 +81,7 @@ I2C_HandleTypeDef hi2c1;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
-
+struct netif gnetif;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -84,7 +95,7 @@ static void MX_ADC1_Init(void);
 static void MX_ADC3_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
-
+static void Netif_Config(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -130,6 +141,32 @@ int main(void)
   MX_ADC3_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
+  /* Initialize the LwIP stack */
+  lwip_init();
+
+  /* Configure the Network interface */
+  Netif_Config();
+
+  /* TCP echo server Init */
+  tcp_echoserver_init();
+
+  while (1) {
+	  /* Read a received packet from the Ethernet buffers and send it
+		 to the lwIP for handling */
+	  ethernetif_input(&gnetif);
+
+	  /* Handle timeouts */
+	  sys_check_timeouts();
+
+#if LWIP_NETIF_LINK_CALLBACK
+	  Ethernet_Link_Periodic_Handle(&gnetif);
+#endif
+
+#if LWIP_DHCP
+	  DHCP_Periodic_Handle(&gnetif);
+#endif
+  }
+
   knl_start_mtkernel();
   /* USER CODE END 2 */
 
@@ -610,7 +647,42 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+/**
+  * @brief  Setup the network interface
+  * @param  None
+  * @retval None
+  */
+static void Netif_Config(void)
+{
+  ip_addr_t ipaddr;
+  ip_addr_t netmask;
+  ip_addr_t gw;
 
+#if LWIP_DHCP
+  ip_addr_set_zero_ip4(&ipaddr);
+  ip_addr_set_zero_ip4(&netmask);
+  ip_addr_set_zero_ip4(&gw);
+#else
+
+  /* IP address default setting */
+  IP4_ADDR(&ipaddr, IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
+  IP4_ADDR(&netmask, NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
+  IP4_ADDR(&gw, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
+
+#endif
+
+  /* add the network interface */
+  netif_add(&gnetif, &ipaddr, &netmask, &gw, NULL, &ethernetif_init, &ethernet_input);
+
+  /*  Registers the default network interface */
+  netif_set_default(&gnetif);
+
+  ethernet_link_status_updated(&gnetif);
+
+#if LWIP_NETIF_LINK_CALLBACK
+  netif_set_link_callback(&gnetif, ethernet_link_status_updated);
+#endif
+}
 /* USER CODE END 4 */
 
 /**
