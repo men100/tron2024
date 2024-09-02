@@ -27,6 +27,11 @@ Core/Src \
 Core/Startup \
 Drivers/BSP/STM32H743ZI-Nucleo \
 Drivers/STM32H7xx_HAL_Driver/Src \
+Middlewares/LwIP/Api \
+Middlewares/LwIP/Core/IPv4 \
+Middlewares/LwIP/Core \
+Middlewares/LwIP/Netif \
+Middlewares/LwIP/apps/http \
 mtk3_bsp2/mtkernel/device/adc \
 mtk3_bsp2/mtkernel/device/adc/sysdepend/rx231 \
 mtk3_bsp2/mtkernel/device/adc/sysdepend/rx65n \
