@@ -52,9 +52,29 @@
 			<locationURI>$%7BPARENT-1-PROJECT_LOC%7D/Src/main.c</locationURI>
 		</link>
 		<link>
+			<name>Application/User/main.h</name>
+			<type>1</type>
+			<locationURI>$%7BPARENT-1-PROJECT_LOC%7D/Inc/main.h</locationURI>
+		</link>
+		<link>
+			<name>Application/User/stm32h7xx_hal_conf.h</name>
+			<type>1</type>
+			<locationURI>$%7BPARENT-1-PROJECT_LOC%7D/Inc/stm32h7xx_hal_conf.h</locationURI>
+		</link>
+		<link>
 			<name>Application/User/stm32h7xx_it.c</name>
 			<type>1</type>
 			<locationURI>$%7BPARENT-1-PROJECT_LOC%7D/Src/stm32h7xx_it.c</locationURI>
+		</link>
+		<link>
+			<name>Application/User/stm32h7xx_hal_msp.c</name>
+			<type>1</type>
+			<locationURI>$%7BPARENT-1-PROJECT_LOC%7D/Src/stm32h7xx_hal_msp.c</locationURI>
+		</link>
+		<link>
+			<name>Application/User/stm32h7xx_nucleo_conf.h</name>
+			<type>1</type>
+			<locationURI>$%7BPARENT-1-PROJECT_LOC%7D/Inc/stm32h7xx_nucleo_conf.h</locationURI>
 		</link>
 		<link>
 			<name>Application/User/tcp_echoserver.c</name>
