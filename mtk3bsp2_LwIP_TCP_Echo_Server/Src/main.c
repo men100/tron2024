@@ -115,9 +115,9 @@ int main(void)
 
 static void BSP_Config(void)
 {
+  BSP_LED_Init(LED1);
   BSP_LED_Init(LED2);
   BSP_LED_Init(LED3);
-
 }
 
 /**
