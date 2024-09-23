@@ -10,6 +10,7 @@
 const char* Mqtt_Topic = "sample";
 
 extern struct netif gnetif;
+BOOL isConnected = FALSE;
 BOOL isPublish = FALSE;
 
 LOCAL void task_handler(INT stacd, void *exinf);	// task execution function
@@ -53,10 +54,13 @@ LOCAL void mtk3bsp2_mqtt_connection_cb(void* arg, mtk3bsp2_mqtt_connection_statu
 	if (status == MTK3BSP2_MQTT_CONNECT_ACCEPTED) {
 	    tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: MQTT client connected successfully\n");
 
+	    isConnected = TRUE;
+
 	    // Subscribe
         mtk3bsp2_mqtt_subscribe(Mqtt_Topic, 0, mtk3bsp2_mqtt_subscribe_request_cb, NULL);
 	} else {
 		tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: MQTT client connection failed(%d)\n", status);
+		isConnected = FALSE;
 	}
 }
 
@@ -98,8 +102,7 @@ LOCAL void task_publisher(INT stacd, void *exinf)
 	char message[80];
 	int count = 0;
 	while(1) {
-
-    	if (!isPublish) {
+    	if (isConnected && !isPublish) {
 			u8_t qos = 0;
 			u8_t retain = 0;
 
