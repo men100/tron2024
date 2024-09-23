@@ -30,6 +30,13 @@ LOCAL T_CTSK ctsk_publisher = {	// Task creation information
 	.tskatr		= TA_HLNG | TA_RNG3,
 };
 
+// EXTI検出コールバック
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+    if (GPIO_Pin == B1_Pin) {
+    	tm_printf((UB*)"Blue_User_Button pressed\n");
+    }
+}
+
 LOCAL void mtk3bsp2_mqtt_subscribe_request_cb(void *arg, int result) {
   if (result != ERR_OK) {
 	tm_printf((UB*)"mtk3bsp2_mqtt_subscribe_request_cb: subscribe failed(%d)\n", result);
@@ -98,7 +105,6 @@ LOCAL void task_publisher(INT stacd, void *exinf)
 	char message[80];
 	int count = 0;
 	while(1) {
-
     	if (!isPublish) {
 			u8_t qos = 0;
 			u8_t retain = 0;

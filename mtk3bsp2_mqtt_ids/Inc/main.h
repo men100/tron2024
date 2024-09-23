@@ -56,6 +56,7 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
+#define B1_EXTI_IRQn EXTI15_10_IRQn
 #define MCO_Pin GPIO_PIN_0
 #define MCO_GPIO_Port GPIOH
 #define RMII_MDC_Pin GPIO_PIN_1
@@ -84,6 +85,7 @@ void Error_Handler(void);
 #define USB_FS_PWR_EN_GPIO_Port GPIOD
 #define USB_FS_OVCR_Pin GPIO_PIN_7
 #define USB_FS_OVCR_GPIO_Port GPIOG
+#define USB_FS_OVCR_EXTI_IRQn EXTI9_5_IRQn
 #define USB_FS_VBUS_Pin GPIO_PIN_9
 #define USB_FS_VBUS_GPIO_Port GPIOA
 #define USB_FS_ID_Pin GPIO_PIN_10
