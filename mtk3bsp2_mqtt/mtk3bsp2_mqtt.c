@@ -5,12 +5,13 @@
 #include "mtk3bsp2_mqtt.h"
 
 static mqtt_client_t* s_mqtt_client;
-static ip_addr_t s_mqtt_server_ip;
+static ip_addr_t s_mqtt_server_ip; // MQTT Broker の IP アドレス
 static mtk3bsp2_mqtt_connection_cb_t s_connection_cb = NULL;
-static mtk3bsp2_mqtt_request_cb_t s_publish_request_cb = NULL;
 static mtk3bsp2_mqtt_incoming_publish_cb_t s_incoming_publish_cb = NULL;
 static mtk3bsp2_mqtt_incoming_data_cb_t s_incoming_data_cb = NULL;
 static mtk3bsp2_mqtt_request_cb_t s_subscribe_request_cb = NULL;
+static mtk3bsp2_mqtt_request_cb_t s_unsubscribe_request_cb = NULL;
+static mtk3bsp2_mqtt_request_cb_t s_publish_request_cb = NULL;
 
 static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection_status_t status)
 {
@@ -19,19 +20,19 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection
   }
 }
 
-static void mqtt_publish_request_cb(void *arg, err_t result)
-{
-  if (s_publish_request_cb != NULL)
-  {
-	  s_publish_request_cb(arg, result);
-  }
-}
-
 static void mqtt_subscribe_request_cb(void *arg, err_t result)
 {
   if (s_subscribe_request_cb != NULL)
   {
 	  s_subscribe_request_cb(arg, result);
+  }
+}
+
+static void mqtt_unsubscribe_request_cb(void *arg, err_t result)
+{
+  if (s_unsubscribe_request_cb != NULL)
+  {
+	  s_unsubscribe_request_cb(arg, result);
   }
 }
 
@@ -51,32 +52,53 @@ static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t f
   }
 }
 
-int mtk3bsp2_mqtt_init(u8_t octet1, u8_t octet2, u8_t octet3, u8_t octet4)
+static void mqtt_publish_request_cb(void *arg, err_t result)
 {
+  if (s_publish_request_cb != NULL)
+  {
+	  s_publish_request_cb(arg, result);
+  }
+}
+
+int mtk3bsp2_mqtt_init(const char* broker_ip_addr)
+{
+  unsigned int octet1, octet2, octet3, octet4;
+
   if (s_mqtt_client != NULL) {
-	  tm_printf((UB*)"mqtt_init: already initialized\n");
+	  tm_printf((UB*)"mtk3bsp2_mqtt_init: already initialized\n");
 	  return -1;
   }
 
-  IP4_ADDR(&s_mqtt_server_ip, octet1, octet2, octet3, octet4); // MQTTブローカーのIPアドレス
+  sscanf(broker_ip_addr, "%u.%u.%u.%u", &octet1, &octet2, &octet3, &octet4);
+  if (255 < octet1 || 255 < octet2 || 255 < octet3 || 255 < octet4) {
+	  tm_printf((UB*)"mtk3bsp2_mqtt_init: broker_ip_addr is invalid(%s)\n", broker_ip_addr);
+  }
+
+  IP4_ADDR(&s_mqtt_server_ip, octet1, octet2, octet3, octet4);
 
   s_mqtt_client = mqtt_client_new();
   if (s_mqtt_client == NULL) {
-	  tm_printf((UB*)"mqtt_init: mqtt_client_new failed\n");
+	  tm_printf((UB*)"mtk3bsp2_mqtt_init: mqtt_client_new failed\n");
 	  return -1;
   }
 
   return 0;
 }
 
-int mtk3bsp2_mqtt_connect(mtk3bsp2_mqtt_connection_cb_t connection_cb, void *arg)
+void mtk3bsp2_mqtt_terminate()
+{
+	mqtt_client_free(s_mqtt_client);
+	s_mqtt_client = NULL;
+}
+
+int mtk3bsp2_mqtt_connect(mtk3bsp2_mqtt_connection_cb_t connection_cb, u16_t keep_alive, void *arg)
 {
   struct mqtt_connect_client_info_t ci;
   err_t err;
 
   memset(&ci, 0, sizeof(ci));
   ci.client_id = "mtk3bsp2_mqtt";
-  ci.keep_alive = 60;
+  ci.keep_alive = keep_alive;
 
   s_connection_cb = connection_cb;
 
@@ -89,16 +111,14 @@ int mtk3bsp2_mqtt_connect(mtk3bsp2_mqtt_connection_cb_t connection_cb, void *arg
   return 0;
 }
 
-int mtk3bsp2_mqtt_publish(const char *topic, const void *payload, u16_t payload_length, u8_t qos, u8_t retain, mtk3bsp2_mqtt_request_cb_t cb, void *arg)
+void mtk3bsp2_mqtt_disconnect()
 {
-	s_publish_request_cb = cb;
+	mqtt_disconnect(s_mqtt_client);
+}
 
-	err_t err = mqtt_publish(s_mqtt_client, topic, payload, payload_length, qos, retain, mqtt_publish_request_cb, arg);
-    if (err != ERR_OK) {
-    	tm_printf((UB*)"mtk3bsp2_mqtt_publish: mqtt_publish failed(%d)\n", err);
-    	return err;
-    }
-    return 0;
+u8_t mtk3bsp2_mqtt_client_is_connected()
+{
+	 return mqtt_client_is_connected(s_mqtt_client);
 }
 
 void mtk3bsp2_mqtt_set_inpub_callback(mtk3bsp2_mqtt_incoming_publish_cb_t pub_cb, mtk3bsp2_mqtt_incoming_data_cb_t data_cb, void *arg)
@@ -116,6 +136,30 @@ int mtk3bsp2_mqtt_subscribe(const char* topic, u8_t qos, mtk3bsp2_mqtt_request_c
 	err_t err = mqtt_subscribe(s_mqtt_client, topic, qos, mqtt_subscribe_request_cb, arg);
     if (err != ERR_OK) {
     	tm_printf((UB*)"mtk3bsp2_mqtt_subscribe: mqtt_subscribe failed(%d)\n", err);
+    	return err;
+    }
+    return 0;
+}
+
+int mtk3bsp2_mqtt_unsubscribe(const char* topic, mtk3bsp2_mqtt_request_cb_t cb, void* arg)
+{
+	s_unsubscribe_request_cb = cb;
+
+	err_t err = mqtt_unsubscribe(s_mqtt_client, topic, mqtt_unsubscribe_request_cb, arg);
+    if (err != ERR_OK) {
+    	tm_printf((UB*)"mtk3bsp2_mqtt_unsubscribe: mqtt_unsubscribe failed(%d)\n", err);
+    	return err;
+    }
+    return 0;
+}
+
+int mtk3bsp2_mqtt_publish(const char *topic, const void *payload, u16_t payload_length, u8_t qos, u8_t retain, mtk3bsp2_mqtt_request_cb_t cb, void *arg)
+{
+	s_publish_request_cb = cb;
+
+	err_t err = mqtt_publish(s_mqtt_client, topic, payload, payload_length, qos, retain, mqtt_publish_request_cb, arg);
+    if (err != ERR_OK) {
+    	tm_printf((UB*)"mtk3bsp2_mqtt_publish: mqtt_publish failed(%d)\n", err);
     	return err;
     }
     return 0;
