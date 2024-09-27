@@ -11,6 +11,9 @@
 // Broker の IP アドレス
 const char* Mqtt_Broker_Ip_Addr = "192.168.1.72";
 
+// Client Id
+const char* Mqtt_Client_Id = "mtk3bsp2_mqtt_client";
+
 // Subscribe, Publish する Topic
 const char* Mqtt_Topic = "sample";
 
@@ -149,7 +152,7 @@ EXPORT INT usermain(void)
 	}
 
 	// MQTT Broker へ接続
-	ret = mtk3bsp2_mqtt_connect(mtk3bsp2_mqtt_connection_cb, 0, NULL);
+	ret = mtk3bsp2_mqtt_connect(mtk3bsp2_mqtt_connection_cb, Mqtt_Client_Id, 0, NULL);
 	if (ret != 0) {
 		tm_printf((UB*)"mqtt_connect failed(%d)\n", ret);
 		return ret;
