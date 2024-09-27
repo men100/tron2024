@@ -34,7 +34,7 @@ typedef void (*mtk3bsp2_mqtt_incoming_data_cb_t)(void *arg, const u8_t *data, u1
 int mtk3bsp2_mqtt_init(const char* broker_ip_addr);
 void mtk3bsp2_mqtt_terminate();
 
-int mtk3bsp2_mqtt_connect(mtk3bsp2_mqtt_connection_cb_t connection_cb, u16_t keep_alive, void *arg);
+int mtk3bsp2_mqtt_connect(mtk3bsp2_mqtt_connection_cb_t connection_cb, const char* client_id, u16_t keep_alive, void *arg);
 void mtk3bsp2_mqtt_disconnect();
 u8_t mtk3bsp2_mqtt_client_is_connected();
 

@@ -91,13 +91,13 @@ void mtk3bsp2_mqtt_terminate()
 	s_mqtt_client = NULL;
 }
 
-int mtk3bsp2_mqtt_connect(mtk3bsp2_mqtt_connection_cb_t connection_cb, u16_t keep_alive, void *arg)
+int mtk3bsp2_mqtt_connect(mtk3bsp2_mqtt_connection_cb_t connection_cb, const char* client_id, u16_t keep_alive, void *arg)
 {
   struct mqtt_connect_client_info_t ci;
   err_t err;
 
   memset(&ci, 0, sizeof(ci));
-  ci.client_id = "mtk3bsp2_mqtt";
+  ci.client_id = client_id;
   ci.keep_alive = keep_alive;
 
   s_connection_cb = connection_cb;
