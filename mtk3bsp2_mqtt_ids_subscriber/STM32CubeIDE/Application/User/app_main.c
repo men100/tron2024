@@ -10,7 +10,9 @@
 
 extern UART_HandleTypeDef huart2;
 
-const char* Mqtt_Topic = "sample";
+const char* Mqtt_Client_Id = "ids_subscriber";
+
+const char* Mqtt_Topic = "ids";
 
 extern struct netif gnetif;
 BOOL isConnected = FALSE;
@@ -32,15 +34,6 @@ LOCAL T_CTSK ctsk_handler = { // Task creation information
 	.tskatr		= TA_HLNG | TA_RNG3,
 };
 
-LOCAL void task_publisher(INT stacd, void *exinf);	// task execution function
-LOCAL ID	tskid_publisher;	// Task ID number
-LOCAL T_CTSK ctsk_publisher = {	// Task creation information
-	.itskpri	= 10,
-	.stksz		= 1024,
-	.task		= task_publisher,
-	.tskatr		= TA_HLNG | TA_RNG3,
-};
-
 // EXTI検出コールバック
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
     if (GPIO_Pin == B1_Pin) {
@@ -57,15 +50,6 @@ LOCAL void mtk3bsp2_mqtt_subscribe_request_cb(void *arg, int result) {
 	tm_printf((UB*)"mtk3bsp2_mqtt_subscribe_request_cb: subscribe successfully\n");
 	BSP_LED_On(LED1);
   }
-}
-
-LOCAL void mtk3bsp2_mqtt_publish_request_cb(void *arg, int result) {
-  if (result != ERR_OK) {
-	tm_printf((UB*)"mtk3bsp2_mqtt_publish_request_cb: publish failed(%d)\n", result);
-  } else {
-	tm_printf((UB*)"mtk3bsp2_mqtt_publish_request_cb: published successfully\n");
-  }
-  isPublish = FALSE;
 }
 
 LOCAL void mtk3bsp2_mqtt_connection_cb(void* arg, mtk3bsp2_mqtt_connection_status_t status) {
@@ -151,39 +135,6 @@ LOCAL void task_handler(INT stacd, void *exinf)
 	}
 }
 
-LOCAL void task_publisher(INT stacd, void *exinf)
-{
-	while(1) {
-    	if (isConnected && !isPublish && isTriggeredUserButton) {
-			isTriggeredUserButton = FALSE;
-
-			u8_t qos = 0;
-			u8_t retain = 0;
-
-			const u8_t* p;
-
-			if (publishCount == 0) {
-				p = tiDataTraverable;
-			} else if (publishCount == 1) {
-				p = tiDataUnderConstruction;
-			}
-
-    		// Publish
-			err_t err = mtk3bsp2_mqtt_publish(Mqtt_Topic, p, 1024, qos, retain, mtk3bsp2_mqtt_publish_request_cb, NULL);
-			if (err != ERR_OK) {
-				tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: mqtt_publish failed: %d\n", err);
-			}
-			isPublish = TRUE;
-			publishCount++;
-			if (publishCount > 1) {
-				publishCount = 0;
-			}
-    	}
-
-		tk_dly_tsk(3000);
-	}
-}
-
 /* usermain関数 */
 EXPORT INT usermain(void)
 {
@@ -197,7 +148,7 @@ EXPORT INT usermain(void)
 		return ret;
 	}
 
-	ret = mtk3bsp2_mqtt_connect(mtk3bsp2_mqtt_connection_cb, 60, NULL);
+	ret = mtk3bsp2_mqtt_connect(mtk3bsp2_mqtt_connection_cb, Mqtt_Client_Id, 0, NULL);
 	if (ret != 0) {
 		tm_printf((UB*)"mqtt_connect failed(%d)\n", ret);
 		return ret;
@@ -207,9 +158,6 @@ EXPORT INT usermain(void)
 
 	tskid_handler = tk_cre_tsk(&ctsk_handler);
 	tk_sta_tsk(tskid_handler, 0);
-
-	tskid_publisher = tk_cre_tsk(&ctsk_publisher);
-	tk_sta_tsk(tskid_publisher, 0);
 
 	tk_slp_tsk(TMO_FEVR);
 
