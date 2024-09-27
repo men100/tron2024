@@ -140,34 +140,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := mtk3bsp2_mqtt_ids
+BUILD_ARTIFACT_NAME := mtk3bsp2_mqtt_ids_publisher
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-mtk3bsp2_mqtt_ids.elf \
+mtk3bsp2_mqtt_ids_publisher.elf \
 
 MAP_FILES += \
-mtk3bsp2_mqtt_ids.map \
+mtk3bsp2_mqtt_ids_publisher.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-mtk3bsp2_mqtt_ids.list \
+mtk3bsp2_mqtt_ids_publisher.list \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: mtk3bsp2_mqtt_ids.elf secondary-outputs
+main-build: mtk3bsp2_mqtt_ids_publisher.elf secondary-outputs
 
 # Tool invocations
-mtk3bsp2_mqtt_ids.elf mtk3bsp2_mqtt_ids.map: $(OBJS) $(USER_OBJS) C:\dev\git\tron2024\mtk3bsp2_mqtt_ids\STM32CubeIDE\STM32H723ZGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "mtk3bsp2_mqtt_ids.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\dev\git\tron2024\mtk3bsp2_mqtt_ids\STM32CubeIDE\STM32H723ZGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="mtk3bsp2_mqtt_ids.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+mtk3bsp2_mqtt_ids_publisher.elf mtk3bsp2_mqtt_ids_publisher.map: $(OBJS) $(USER_OBJS) C:\dev\git\tron2024\mtk3bsp2_mqtt_ids_publisher\STM32CubeIDE\STM32H723ZGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "mtk3bsp2_mqtt_ids_publisher.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\dev\git\tron2024\mtk3bsp2_mqtt_ids_publisher\STM32CubeIDE\STM32H723ZGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="mtk3bsp2_mqtt_ids_publisher.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -176,14 +176,14 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-mtk3bsp2_mqtt_ids.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "mtk3bsp2_mqtt_ids.list"
+mtk3bsp2_mqtt_ids_publisher.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "mtk3bsp2_mqtt_ids_publisher.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) default.size.stdout mtk3bsp2_mqtt_ids.elf mtk3bsp2_mqtt_ids.list mtk3bsp2_mqtt_ids.map
+	-$(RM) default.size.stdout mtk3bsp2_mqtt_ids_publisher.elf mtk3bsp2_mqtt_ids_publisher.list mtk3bsp2_mqtt_ids_publisher.map
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)

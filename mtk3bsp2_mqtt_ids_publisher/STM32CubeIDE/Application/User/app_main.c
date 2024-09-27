@@ -191,13 +191,13 @@ EXPORT INT usermain(void)
 
 	tm_putstring((UB*)"Start User-main program.\n");
 
-	ret = mtk3bsp2_mqtt_init(192, 168, 1, 72);
+	ret = mtk3bsp2_mqtt_init("192.168.1.72");
 	if (ret != 0) {
 		tm_printf((UB*)"mqtt_init failed(%d)\n", ret);
 		return ret;
 	}
 
-	ret = mtk3bsp2_mqtt_connect(mtk3bsp2_mqtt_connection_cb, "TEST");
+	ret = mtk3bsp2_mqtt_connect(mtk3bsp2_mqtt_connection_cb, 60, NULL);
 	if (ret != 0) {
 		tm_printf((UB*)"mqtt_connect failed(%d)\n", ret);
 		return ret;
