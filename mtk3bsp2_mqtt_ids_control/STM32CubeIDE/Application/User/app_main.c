@@ -23,13 +23,10 @@ const char* Mqtt_Client_Id = "ids_publisher";
 const char* Mqtt_Topic = "ids";
 
 // MQTT Broker に接続されているかどうか
-BOOL isMqttConnected = FALSE;
+BOOL is_mqtt_connected = FALSE;
 
 // MQTT Publish 中かどうか
-BOOL isMqttPublishing = FALSE;
-
-int tiDataIndex = 0;
-int totalTiDataSize = 0;
+BOOL is_mqtt_publishing = FALSE;
 
 int publishCount = 0;
 
@@ -80,18 +77,18 @@ LOCAL void mtk3bsp2_mqtt_publish_request_cb(void *arg, int result) {
   if (result != ERR_OK) {
 	tm_printf((UB*)"mtk3bsp2_mqtt_publish_request_cb: publish failed(%d)\n", result);
   }
-  isMqttPublishing = FALSE;
+  is_mqtt_publishing = FALSE;
 }
 
 // Connection の状態を返す Callback
 LOCAL void mtk3bsp2_mqtt_connection_cb(void* arg, mtk3bsp2_mqtt_connection_status_t status) {
 	if (status == MTK3BSP2_MQTT_CONNECT_ACCEPTED) {
 	    tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: MQTT client connected successfully\n");
-	    isMqttConnected = TRUE;
+	    is_mqtt_connected = TRUE;
 	} else {
 		tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: MQTT client connection failed(%d)\n", status);
-		if (isMqttConnected) {
-			isMqttConnected = FALSE;
+		if (is_mqtt_connected) {
+			is_mqtt_connected = FALSE;
 			tk_set_flg(flgid, FLAG_MQTT_DISCONNECTED);
 		}
 	}
@@ -126,7 +123,7 @@ LOCAL void task_publisher(INT stacd, void *exinf)
 
 		tm_printf((UB*)"[task_publisher] awaked.\n");
 
-    	if (isMqttConnected && !isMqttPublishing) {
+    	if (is_mqtt_connected && !is_mqtt_publishing) {
 			u8_t qos = 0;
 			u8_t retain = 0;
 
@@ -144,7 +141,7 @@ LOCAL void task_publisher(INT stacd, void *exinf)
 				tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: mqtt_publish failed: %d\n", err);
 			}
 			tm_printf((UB*)"[task_publisher] published.\n");
-			isMqttPublishing = TRUE;
+			is_mqtt_publishing = TRUE;
 			publishCount++;
 			if (publishCount > 1) {
 				publishCount = 0;
@@ -152,8 +149,6 @@ LOCAL void task_publisher(INT stacd, void *exinf)
     	} else {
 			tm_printf((UB*)"[task_publisher] not published.\n");
     	}
-
-    	tk_clr_flg(flgid, ~FLAG_USER_BUTTON);
 	}
 }
 
