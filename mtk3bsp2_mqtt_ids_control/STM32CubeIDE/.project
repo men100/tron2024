@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>mtk3bsp2_mqtt_ids_publisher</name>
+	<name>mtk3bsp2_mqtt_ids_control</name>
 	<comment></comment>
 	<projects>
 	</projects>

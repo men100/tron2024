@@ -178,7 +178,7 @@ EXPORT INT usermain(void)
 {
 	int ret = 0;
 
-	tm_putstring((UB*)"Start mtk3bsp2_mqtt_ids_publisher.\n");
+	tm_putstring((UB*)"Start mtk3bsp2_mqtt_ids_control.\n");
 
 	ret = mtk3bsp2_mqtt_init(Mqtt_Broker_Ip_Addr);
 	if (ret != 0) {
