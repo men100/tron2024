@@ -8,6 +8,10 @@
 #include "mtk3bsp2_mqtt.h"
 #include "ecr1264.h"
 
+#define FLAG_USER_BUTTON		0x01
+#define FLAG_MQTT_DISCONNECTED	0x02
+#define FLAG_DATA_RECEIVED		0x04
+
 extern UART_HandleTypeDef huart2;
 extern struct netif gnetif;
 
@@ -21,10 +25,17 @@ const char* Mqtt_Client_Id = "ids_subscriber";
 const char* Mqtt_Topic = "ids";
 
 // MQTT Broker に接続されているかどうか
-BOOL isMqttConnected = FALSE;
+BOOL is_mqtt_connected = FALSE;
 
 int ti_data_offset = 0;
 int total_ti_data_size = 0;
+
+LOCAL ID	flgid;
+LOCAL CONST T_CFLG cflg = {
+	.exinf		= NULL,
+	.flgatr		= TA_TFIFO | TA_WMUL,
+	.iflgptn	= 0
+};
 
 LOCAL void task_handler(INT stacd, void *exinf);	// task execution function
 LOCAL ID	tskid_handler;	  // Task ID number
@@ -32,6 +43,15 @@ LOCAL T_CTSK ctsk_handler = { // Task creation information
 	.itskpri	= 10,
 	.stksz		= 1024,
 	.task		= task_handler,
+	.tskatr		= TA_HLNG | TA_RNG3,
+};
+
+LOCAL void task_receiver(INT stacd, void *exinf);	// task execution function
+LOCAL ID	tskid_receiver;	// Task ID number
+LOCAL T_CTSK ctsk_receiver = {	// Task creation information
+	.itskpri	= 10,
+	.stksz		= 1024,
+	.task		= task_receiver,
 	.tskatr		= TA_HLNG | TA_RNG3,
 };
 
@@ -55,20 +75,19 @@ LOCAL void mtk3bsp2_mqtt_subscribe_request_cb(void *arg, int result) {
 LOCAL void mtk3bsp2_mqtt_connection_cb(void* arg, mtk3bsp2_mqtt_connection_status_t status) {
 	if (status == MTK3BSP2_MQTT_CONNECT_ACCEPTED) {
 	    tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: MQTT client connected successfully\n");
-	    isMqttConnected = TRUE;
+	    is_mqtt_connected = TRUE;
 
 	    // Subscribe
         mtk3bsp2_mqtt_subscribe(Mqtt_Topic, 0, mtk3bsp2_mqtt_subscribe_request_cb, NULL);
 	} else {
 		tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: MQTT client connection failed(%d)\n", status);
-		isMqttConnected = FALSE;
+		is_mqtt_connected = FALSE;
 	}
 }
 
 // Publish された Message が届いた初回に呼ばれる Callback
 LOCAL void mtk3bsp2_mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
 {
-  tm_printf((UB*)"mtk3bsp2_mqtt_incoming_publish_cb: Incoming publish at topic \"%s\" with total length %u\n", topic, (unsigned int)tot_len);
   ti_data_offset = 0;
   total_ti_data_size = tot_len;
 }
@@ -76,21 +95,11 @@ LOCAL void mtk3bsp2_mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t
 // Publish された Message が届いたときに呼ばれる Callback
 LOCAL void mtk3bsp2_mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
 {
-  tm_printf((UB*)"mtk3bsp2_mqtt_incoming_data_cb: Incoming publish payload with length %d, flags %u\n", len, (unsigned int)flags);
   ecr1264_set_ti_data(data, len, ti_data_offset);
   ti_data_offset += len;
 
   if (flags & MTK3BSP2_MQTT_DATA_FLAG_LAST) {
-    tm_printf((UB*)"mtk3bsp2_mqtt_incoming_data_cb: Last fragment of payload received\n");
-    if (ti_data_offset == total_ti_data_size) {
-    	tm_printf((UB*)"received length is correct.\n");
-
-    	ecr1264_clear_vram();
-    	ecr1264_send_ti_data();
-    	ecr1264_update();
-    } else {
-    	tm_printf((UB*)"received length is incorrect.(received=%d, total_length=%d)\n", ti_data_offset, total_ti_data_size);
-    }
+	  tk_set_flg(flgid, FLAG_DATA_RECEIVED);
   }
 }
 
@@ -111,6 +120,28 @@ LOCAL void task_handler(INT stacd, void *exinf)
 		DHCP_Periodic_Handle(&gnetif);
 #endif
 		tk_dly_tsk(100);
+	}
+}
+
+// 受け取ったデータを ECR-1264 に送信する Task
+LOCAL void task_receiver(INT stacd, void *exinf)
+{
+	while(1) {
+		tk_wai_flg(flgid, FLAG_DATA_RECEIVED, TWF_BITCLR, NULL, TMO_FEVR);
+
+		tm_printf((UB*)"[task_receiver] awaked.\n");
+	    if (ti_data_offset == total_ti_data_size) {
+	    	tm_printf((UB*)"[task_receiver] received length is correct.\n");
+
+	    	ecr1264_clear_vram();
+	    	ecr1264_send_ti_data();
+	    	ecr1264_update();
+
+	    	tm_printf((UB*)"[task_receiver] updated ECR-1264.\n");
+	    } else {
+	    	tm_printf((UB*)"[task_receiver] received length is incorrect.(received=%d, total_length=%d)\n",
+	    			ti_data_offset, total_ti_data_size);
+	    }
 	}
 }
 
@@ -137,8 +168,13 @@ EXPORT INT usermain(void)
 
 	mtk3bsp2_mqtt_set_inpub_callback(mtk3bsp2_mqtt_incoming_publish_cb, mtk3bsp2_mqtt_incoming_data_cb, NULL);
 
+	flgid = tk_cre_flg(&cflg);
+
 	tskid_handler = tk_cre_tsk(&ctsk_handler);
 	tk_sta_tsk(tskid_handler, 0);
+
+	tskid_receiver = tk_cre_tsk(&ctsk_receiver);
+	tk_sta_tsk(tskid_receiver, 0);
 
 	tk_slp_tsk(TMO_FEVR);
 
