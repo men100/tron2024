@@ -11,7 +11,6 @@
 #define FLAG_USER_BUTTON		0x01
 #define FLAG_MQTT_DISCONNECTED	0x02
 
-extern UART_HandleTypeDef huart2;
 extern struct netif gnetif;
 
 // Broker の IP アドレス
