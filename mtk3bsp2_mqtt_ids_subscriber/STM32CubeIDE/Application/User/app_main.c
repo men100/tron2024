@@ -6,24 +6,25 @@
 #include "ethernetif.h"
 #include "app_ethernet.h"
 #include "mtk3bsp2_mqtt.h"
-#include "ti_data.h"
+#include "ecr1264.h"
 
 extern UART_HandleTypeDef huart2;
+extern struct netif gnetif;
 
+// Broker の IP アドレス
+const char* Mqtt_Broker_Ip_Addr = "192.168.1.72";
+
+// MQTT Client ID (ユニークである必要がある)
 const char* Mqtt_Client_Id = "ids_subscriber";
 
+// MQTT Topic
 const char* Mqtt_Topic = "ids";
 
-extern struct netif gnetif;
-BOOL isConnected = FALSE;
-BOOL isPublish = FALSE;
-BOOL isTriggeredUserButton = FALSE;
+// MQTT Broker に接続されているかどうか
+BOOL isMqttConnected = FALSE;
 
-int tiDataIndex = 0;
-int totalTiDataSize = 0;
-uint8_t receivedTiData[1024];
-
-int publishCount = 0;
+int ti_data_offset = 0;
+int total_ti_data_size = 0;
 
 LOCAL void task_handler(INT stacd, void *exinf);	// task execution function
 LOCAL ID	tskid_handler;	  // Task ID number
@@ -36,9 +37,8 @@ LOCAL T_CTSK ctsk_handler = { // Task creation information
 
 // EXTI検出コールバック
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-    if (GPIO_Pin == B1_Pin) {
-    	tm_printf((UB*)"Blue_User_Button pressed\n");
-    	isTriggeredUserButton = TRUE;
+	// User Button が押された
+	if (GPIO_Pin == B1_Pin) {
     }
 }
 
@@ -55,62 +55,41 @@ LOCAL void mtk3bsp2_mqtt_subscribe_request_cb(void *arg, int result) {
 LOCAL void mtk3bsp2_mqtt_connection_cb(void* arg, mtk3bsp2_mqtt_connection_status_t status) {
 	if (status == MTK3BSP2_MQTT_CONNECT_ACCEPTED) {
 	    tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: MQTT client connected successfully\n");
-
-	    isConnected = TRUE;
+	    isMqttConnected = TRUE;
 
 	    // Subscribe
         mtk3bsp2_mqtt_subscribe(Mqtt_Topic, 0, mtk3bsp2_mqtt_subscribe_request_cb, NULL);
 	} else {
 		tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: MQTT client connection failed(%d)\n", status);
-		isConnected = FALSE;
+		isMqttConnected = FALSE;
 	}
 }
 
+// Publish された Message が届いた初回に呼ばれる Callback
 LOCAL void mtk3bsp2_mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
 {
   tm_printf((UB*)"mtk3bsp2_mqtt_incoming_publish_cb: Incoming publish at topic \"%s\" with total length %u\n", topic, (unsigned int)tot_len);
-  tiDataIndex = 0;
-  totalTiDataSize = tot_len;
+  ti_data_offset = 0;
+  total_ti_data_size = tot_len;
 }
 
+// Publish された Message が届いたときに呼ばれる Callback
 LOCAL void mtk3bsp2_mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
 {
   tm_printf((UB*)"mtk3bsp2_mqtt_incoming_data_cb: Incoming publish payload with length %d, flags %u\n", len, (unsigned int)flags);
-  memcpy(receivedTiData + tiDataIndex, data, len);
-  tiDataIndex += len;
+  ecr1264_set_ti_data(data, len, ti_data_offset);
+  ti_data_offset += len;
 
   if (flags & MTK3BSP2_MQTT_DATA_FLAG_LAST) {
     tm_printf((UB*)"mtk3bsp2_mqtt_incoming_data_cb: Last fragment of payload received\n");
-    if (tiDataIndex == totalTiDataSize) {
+    if (ti_data_offset == total_ti_data_size) {
     	tm_printf((UB*)"received length is correct.\n");
 
-  	  uint8_t vramClearCommand[] = "ER\r";
-  	  uint8_t repaintCommand[] = "DP\r";
-  	  uint8_t tiCommand[2 + 1024 + 1];
-
-  	  memcpy(tiCommand, (uint8_t*)"TI", 2);
-  	  memcpy(tiCommand + 2, receivedTiData, 1024);
-  	  memcpy(tiCommand + 2 + 1024, (uint8_t*)"\r", 1);
-
-  	  // VRAM クリア
-        if (HAL_UART_Transmit(&huart2, vramClearCommand, sizeof(vramClearCommand), HAL_MAX_DELAY) != HAL_OK)
-        {
-          Error_Handler();
-        }
-
-        // 画像転送
-        if (HAL_UART_Transmit(&huart2, tiCommand, sizeof(tiCommand), HAL_MAX_DELAY) != HAL_OK)
-        {
-          Error_Handler();
-        }
-
-  	  // 表示書き換え
-        if (HAL_UART_Transmit(&huart2, repaintCommand, sizeof(repaintCommand), HAL_MAX_DELAY) != HAL_OK)
-        {
-          Error_Handler();
-        }
+    	ecr1264_clear_vram();
+    	ecr1264_send_ti_data();
+    	ecr1264_update();
     } else {
-    	tm_printf((UB*)"received length is incorrect.(received=%d, total_length=%d)\n", tiDataIndex, totalTiDataSize);
+    	tm_printf((UB*)"received length is incorrect.(received=%d, total_length=%d)\n", ti_data_offset, total_ti_data_size);
     }
   }
 }
@@ -140,9 +119,11 @@ EXPORT INT usermain(void)
 {
 	int ret = 0;
 
-	tm_putstring((UB*)"Start User-main program.\n");
+	tm_putstring((UB*)"Start mtk3bsp2_mqtt_ids_sign.\n");
 
-	ret = mtk3bsp2_mqtt_init("192.168.1.72");
+	ecr1264_init(&huart2);
+
+	ret = mtk3bsp2_mqtt_init(Mqtt_Broker_Ip_Addr);
 	if (ret != 0) {
 		tm_printf((UB*)"mqtt_init failed(%d)\n", ret);
 		return ret;
