@@ -8,22 +8,38 @@
 #include "mtk3bsp2_mqtt.h"
 #include "ti_data.h"
 
-extern UART_HandleTypeDef huart2;
+#define FLAG_USER_BUTTON		0x01
+#define FLAG_MQTT_DISCONNECTED	0x02
 
+extern UART_HandleTypeDef huart2;
+extern struct netif gnetif;
+
+// Broker の IP アドレス
+const char* Mqtt_Broker_Ip_Addr = "192.168.1.72";
+
+// MQTT Client ID (ユニークである必要がある)
 const char* Mqtt_Client_Id = "ids_publisher";
 
+// MQTT Topic
 const char* Mqtt_Topic = "ids";
 
-extern struct netif gnetif;
-BOOL isConnected = FALSE;
-BOOL isPublish = FALSE;
-BOOL isTriggeredUserButton = FALSE;
+// MQTT Broker に接続されているかどうか
+BOOL isMqttConnected = FALSE;
+
+// MQTT Publish 中かどうか
+BOOL isMqttPublishing = FALSE;
 
 int tiDataIndex = 0;
 int totalTiDataSize = 0;
-uint8_t receivedTiData[1024];
 
 int publishCount = 0;
+
+LOCAL ID	flgid;
+LOCAL CONST T_CFLG cflg = {
+	.exinf		= NULL,
+	.flgatr		= TA_TFIFO | TA_WMUL,
+	.iflgptn	= 0
+};
 
 LOCAL void task_handler(INT stacd, void *exinf);	// task execution function
 LOCAL ID	tskid_handler;	  // Task ID number
@@ -43,34 +59,46 @@ LOCAL T_CTSK ctsk_publisher = {	// Task creation information
 	.tskatr		= TA_HLNG | TA_RNG3,
 };
 
+LOCAL void task_reconnector(INT stacd, void *exinf);	// task execution function
+LOCAL ID	tskid_reconnector;	// Task ID number
+LOCAL T_CTSK ctsk_reconnector = {	// Task creation information
+	.itskpri	= 10,
+	.stksz		= 1024,
+	.task		= task_reconnector,
+	.tskatr		= TA_HLNG | TA_RNG3,
+};
+
 // EXTI検出コールバック
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	// User Button が押された
     if (GPIO_Pin == B1_Pin) {
-    	tm_printf((UB*)"Blue_User_Button pressed\n");
-    	isTriggeredUserButton = TRUE;
+    	tk_set_flg(flgid, FLAG_USER_BUTTON);
     }
 }
 
+// Publish Request の結果を返す Callback
 LOCAL void mtk3bsp2_mqtt_publish_request_cb(void *arg, int result) {
   if (result != ERR_OK) {
 	tm_printf((UB*)"mtk3bsp2_mqtt_publish_request_cb: publish failed(%d)\n", result);
-  } else {
-	tm_printf((UB*)"mtk3bsp2_mqtt_publish_request_cb: published successfully\n");
   }
-  isPublish = FALSE;
+  isMqttPublishing = FALSE;
 }
 
+// Connection の状態を返す Callback
 LOCAL void mtk3bsp2_mqtt_connection_cb(void* arg, mtk3bsp2_mqtt_connection_status_t status) {
 	if (status == MTK3BSP2_MQTT_CONNECT_ACCEPTED) {
 	    tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: MQTT client connected successfully\n");
-
-	    isConnected = TRUE;
+	    isMqttConnected = TRUE;
 	} else {
 		tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: MQTT client connection failed(%d)\n", status);
-		isConnected = FALSE;
+		if (isMqttConnected) {
+			isMqttConnected = FALSE;
+			tk_set_flg(flgid, FLAG_MQTT_DISCONNECTED);
+		}
 	}
 }
 
+// パケットを受信する Task
 LOCAL void task_handler(INT stacd, void *exinf)
 {
 	while(1) {
@@ -91,12 +119,15 @@ LOCAL void task_handler(INT stacd, void *exinf)
 	}
 }
 
+// Publish する Task
 LOCAL void task_publisher(INT stacd, void *exinf)
 {
 	while(1) {
-    	if (isConnected && !isPublish && isTriggeredUserButton) {
-			isTriggeredUserButton = FALSE;
+		tk_wai_flg(flgid, FLAG_USER_BUTTON, TWF_BITCLR, NULL, TMO_FEVR);
 
+		tm_printf((UB*)"[task_publisher] awaked.\n");
+
+    	if (isMqttConnected && !isMqttPublishing) {
 			u8_t qos = 0;
 			u8_t retain = 0;
 
@@ -113,14 +144,33 @@ LOCAL void task_publisher(INT stacd, void *exinf)
 			if (err != ERR_OK) {
 				tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: mqtt_publish failed: %d\n", err);
 			}
-			isPublish = TRUE;
+			tm_printf((UB*)"[task_publisher] published.\n");
+			isMqttPublishing = TRUE;
 			publishCount++;
 			if (publishCount > 1) {
 				publishCount = 0;
 			}
+    	} else {
+			tm_printf((UB*)"[task_publisher] not published.\n");
     	}
 
-		tk_dly_tsk(3000);
+    	tk_clr_flg(flgid, ~FLAG_USER_BUTTON);
+	}
+}
+
+// MQTT Broker に再接続を試みる Task
+LOCAL void task_reconnector(INT stacd, void *exinf)
+{
+	int ret = 0;
+	while(1) {
+		tk_wai_flg(flgid, FLAG_MQTT_DISCONNECTED, TWF_BITCLR, NULL, TMO_FEVR);
+
+		tm_printf((UB*)"[task_reconnector] awaked.\n");
+
+		ret = mtk3bsp2_mqtt_connect(mtk3bsp2_mqtt_connection_cb, Mqtt_Client_Id, 0, NULL);
+		if (ret != 0) {
+			tm_printf((UB*)"mqtt_connect failed(%d)\n", ret);
+		}
 	}
 }
 
@@ -129,9 +179,9 @@ EXPORT INT usermain(void)
 {
 	int ret = 0;
 
-	tm_putstring((UB*)"Start User-main program.\n");
+	tm_putstring((UB*)"Start mtk3bsp2_mqtt_ids_publisher.\n");
 
-	ret = mtk3bsp2_mqtt_init("192.168.1.72");
+	ret = mtk3bsp2_mqtt_init(Mqtt_Broker_Ip_Addr);
 	if (ret != 0) {
 		tm_printf((UB*)"mqtt_init failed(%d)\n", ret);
 		return ret;
@@ -143,11 +193,16 @@ EXPORT INT usermain(void)
 		return ret;
 	}
 
+	flgid = tk_cre_flg(&cflg);
+
 	tskid_handler = tk_cre_tsk(&ctsk_handler);
 	tk_sta_tsk(tskid_handler, 0);
 
 	tskid_publisher = tk_cre_tsk(&ctsk_publisher);
 	tk_sta_tsk(tskid_publisher, 0);
+
+	tskid_reconnector = tk_cre_tsk(&ctsk_reconnector);
+	tk_sta_tsk(tskid_reconnector, 0);
 
 	tk_slp_tsk(TMO_FEVR);
 
