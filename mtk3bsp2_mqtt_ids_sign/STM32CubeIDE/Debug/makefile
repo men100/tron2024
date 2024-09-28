@@ -140,34 +140,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := mtk3bsp2_mqtt_ids_subscriber
+BUILD_ARTIFACT_NAME := mtk3bsp2_mqtt_ids_sign
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-mtk3bsp2_mqtt_ids_subscriber.elf \
+mtk3bsp2_mqtt_ids_sign.elf \
 
 MAP_FILES += \
-mtk3bsp2_mqtt_ids_subscriber.map \
+mtk3bsp2_mqtt_ids_sign.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-mtk3bsp2_mqtt_ids_subscriber.list \
+mtk3bsp2_mqtt_ids_sign.list \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: mtk3bsp2_mqtt_ids_subscriber.elf secondary-outputs
+main-build: mtk3bsp2_mqtt_ids_sign.elf secondary-outputs
 
 # Tool invocations
-mtk3bsp2_mqtt_ids_subscriber.elf mtk3bsp2_mqtt_ids_subscriber.map: $(OBJS) $(USER_OBJS) C:\dev\git\tron2024\mtk3bsp2_mqtt_ids_subscriber\STM32CubeIDE\STM32H723ZGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "mtk3bsp2_mqtt_ids_subscriber.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\dev\git\tron2024\mtk3bsp2_mqtt_ids_subscriber\STM32CubeIDE\STM32H723ZGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="mtk3bsp2_mqtt_ids_subscriber.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+mtk3bsp2_mqtt_ids_sign.elf mtk3bsp2_mqtt_ids_sign.map: $(OBJS) $(USER_OBJS) C:\dev\git\tron2024\mtk3bsp2_mqtt_ids_sign\STM32CubeIDE\STM32H723ZGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "mtk3bsp2_mqtt_ids_sign.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\dev\git\tron2024\mtk3bsp2_mqtt_ids_sign\STM32CubeIDE\STM32H723ZGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="mtk3bsp2_mqtt_ids_sign.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -176,14 +176,14 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-mtk3bsp2_mqtt_ids_subscriber.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "mtk3bsp2_mqtt_ids_subscriber.list"
+mtk3bsp2_mqtt_ids_sign.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "mtk3bsp2_mqtt_ids_sign.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) default.size.stdout mtk3bsp2_mqtt_ids_subscriber.elf mtk3bsp2_mqtt_ids_subscriber.list mtk3bsp2_mqtt_ids_subscriber.map
+	-$(RM) default.size.stdout mtk3bsp2_mqtt_ids_sign.elf mtk3bsp2_mqtt_ids_sign.list mtk3bsp2_mqtt_ids_sign.map
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)
