@@ -10,6 +10,7 @@
 
 #define FLAG_USER_BUTTON		0x01
 #define FLAG_MQTT_DISCONNECTED	0x02
+#define FLAG_REQUEST_FROM_SIGN	0x04
 
 extern struct netif gnetif;
 
@@ -19,8 +20,11 @@ const char* Mqtt_Broker_Ip_Addr = "192.168.1.72";
 // MQTT Client ID (ユニークである必要がある)
 const char* Mqtt_Client_Id = "ids_publisher";
 
-// MQTT Topic
-const char* Mqtt_Topic = "ids";
+// MQTT Topic (情報配信用)
+const char* Mqtt_Topic_Ids = "ids";
+
+// MQTT Topic (情報要求用)
+const char* Mqtt_Topic_Request = "request";
 
 // MQTT Broker に接続されているかどうか
 BOOL is_mqtt_connected = FALSE;
@@ -72,6 +76,17 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
     }
 }
 
+// Subscribe Request の結果を返す Callback
+LOCAL void mtk3bsp2_mqtt_subscribe_request_cb(void *arg, int result) {
+  if (result != ERR_OK) {
+	tm_printf((UB*)"mtk3bsp2_mqtt_subscribe_request_cb: subscribe failed(%d)\n", result);
+	BSP_LED_Off(LED1);
+  } else {
+	tm_printf((UB*)"mtk3bsp2_mqtt_subscribe_request_cb: subscribe successfully\n");
+	BSP_LED_On(LED1);
+  }
+}
+
 // Publish Request の結果を返す Callback
 LOCAL void mtk3bsp2_mqtt_publish_request_cb(void *arg, int result) {
   if (result != ERR_OK) {
@@ -85,6 +100,9 @@ LOCAL void mtk3bsp2_mqtt_connection_cb(void* arg, mtk3bsp2_mqtt_connection_statu
 	if (status == MTK3BSP2_MQTT_CONNECT_ACCEPTED) {
 	    tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: MQTT client connected successfully\n");
 	    is_mqtt_connected = TRUE;
+
+	    // Subscribe
+        mtk3bsp2_mqtt_subscribe(Mqtt_Topic_Request, 0, mtk3bsp2_mqtt_subscribe_request_cb, NULL);
 	} else {
 		tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: MQTT client connection failed(%d)\n", status);
 		if (is_mqtt_connected) {
@@ -92,6 +110,21 @@ LOCAL void mtk3bsp2_mqtt_connection_cb(void* arg, mtk3bsp2_mqtt_connection_statu
 			tk_set_flg(flgid, FLAG_MQTT_DISCONNECTED);
 		}
 	}
+}
+
+// Publish された Message が届いた初回に呼ばれる Callback
+LOCAL void mtk3bsp2_mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
+{
+	// do nothing
+}
+
+// Publish された Message が届いたときに呼ばれる Callback
+LOCAL void mtk3bsp2_mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
+{
+	tm_printf((UB*)"mtk3bsp2_mqtt_incoming_data_cb: Received message=\"%s\"\n", data);
+	if (flags & MTK3BSP2_MQTT_DATA_FLAG_LAST) {
+		  tk_set_flg(flgid, FLAG_REQUEST_FROM_SIGN);
+    }
 }
 
 // パケットを受信する Task
@@ -118,36 +151,52 @@ LOCAL void task_handler(INT stacd, void *exinf)
 // Publish する Task
 LOCAL void task_publisher(INT stacd, void *exinf)
 {
+	UINT flgptn;
 	while(1) {
-		tk_wai_flg(flgid, FLAG_USER_BUTTON, TWF_BITCLR, NULL, TMO_FEVR);
+		tk_wai_flg(flgid, FLAG_USER_BUTTON | FLAG_REQUEST_FROM_SIGN, TWF_ORW | TWF_BITCLR, &flgptn, TMO_FEVR);
 
 		tm_printf((UB*)"[task_publisher] awaked.\n");
 
     	if (is_mqtt_connected && !is_mqtt_publishing) {
 			u8_t qos = 0;
 			u8_t retain = 0;
+			BOOL awake_by_request = FALSE;
 
 			const u8_t* p;
 
-			if (publishCount == 0) {
-				p = tiDataTraverable;
-			} else if (publishCount == 1) {
+			if (flgptn & FLAG_REQUEST_FROM_SIGN) {
+				awake_by_request = TRUE;
+			}
+
+			if (awake_by_request) {
 				p = tiDataUnderConstruction;
+
+			} else {
+				if (publishCount == 0) {
+					p = tiDataTraverable;
+				} else if (publishCount == 1) {
+					p = tiDataUnderConstruction;
+				}
 			}
 
     		// Publish
-			err_t err = mtk3bsp2_mqtt_publish(Mqtt_Topic, p, 1024, qos, retain, mtk3bsp2_mqtt_publish_request_cb, NULL);
+			err_t err = mtk3bsp2_mqtt_publish(Mqtt_Topic_Ids, p, 1024, qos, retain, mtk3bsp2_mqtt_publish_request_cb, NULL);
 			if (err != ERR_OK) {
 				tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: mqtt_publish failed: %d\n", err);
+			} else {
+				tm_printf((UB*)"[task_publisher] published.\n");
 			}
-			tm_printf((UB*)"[task_publisher] published.\n");
 			is_mqtt_publishing = TRUE;
-			publishCount++;
-			if (publishCount > 1) {
-				publishCount = 0;
+
+			if (!awake_by_request) {
+				publishCount++;
+				if (publishCount > 1) {
+					publishCount = 0;
+				}
 			}
     	} else {
-			tm_printf((UB*)"[task_publisher] not published.\n");
+			tm_printf((UB*)"[task_publisher] not published. (is_mqtt_connected=%s, is_mqttt_publishing)\n",
+					is_mqtt_connected ? "true" : "false", is_mqtt_publishing ? "true" : "false");
     	}
 	}
 }
@@ -186,6 +235,8 @@ EXPORT INT usermain(void)
 		tm_printf((UB*)"mqtt_connect failed(%d)\n", ret);
 		return ret;
 	}
+
+	mtk3bsp2_mqtt_set_inpub_callback(mtk3bsp2_mqtt_incoming_publish_cb, mtk3bsp2_mqtt_incoming_data_cb, NULL);
 
 	flgid = tk_cre_flg(&cflg);
 
