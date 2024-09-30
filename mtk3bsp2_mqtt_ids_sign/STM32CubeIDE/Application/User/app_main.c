@@ -220,7 +220,7 @@ LOCAL void task_publisher(INT stacd, void *exinf)
 		tm_printf((UB*)"[task_publisher] awaked.\n");
 
     	if (is_mqtt_connected && !is_mqtt_publishing) {
-    		const char* message = "Please send me to the road information";
+    		const char* message = "Please send ids the road information";
     		u8_t qos = 0;
 			u8_t retain = 0;
 
