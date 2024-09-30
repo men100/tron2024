@@ -32,7 +32,8 @@ BOOL is_mqtt_connected = FALSE;
 // MQTT Publish 中かどうか
 BOOL is_mqtt_publishing = FALSE;
 
-int publishCount = 0;
+// Publish する ECR-1264 更新用データの index
+int ti_data_index = 0;
 
 LOCAL ID	flgid;
 LOCAL CONST T_CFLG cflg = {
@@ -169,30 +170,31 @@ LOCAL void task_publisher(INT stacd, void *exinf)
 			}
 
 			if (awake_by_request) {
-				p = tiDataUnderConstruction;
+				// Sign からの Request のときは必ず道路情報を返す
+				p = getTiData(0);
 
 			} else {
-				if (publishCount == 0) {
-					p = tiDataTraverable;
-				} else if (publishCount == 1) {
-					p = tiDataUnderConstruction;
-				}
+				p = getTiData(ti_data_index);
 			}
 
-    		// Publish
-			err_t err = mtk3bsp2_mqtt_publish(Mqtt_Topic_Ids, p, 1024, qos, retain, mtk3bsp2_mqtt_publish_request_cb, NULL);
-			if (err != ERR_OK) {
-				tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: mqtt_publish failed: %d\n", err);
+			if (p != NULL) {
+				// Publish
+				err_t err = mtk3bsp2_mqtt_publish(Mqtt_Topic_Ids, p, 1024, qos, retain, mtk3bsp2_mqtt_publish_request_cb, NULL);
+				if (err != ERR_OK) {
+					tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: mqtt_publish failed: %d\n", err);
+				} else {
+					tm_printf((UB*)"[task_publisher] published.\n");
+				}
+				is_mqtt_publishing = TRUE;
+
+				if (!awake_by_request) {
+					ti_data_index++;
+					if (ti_data_index >= TI_DATA_NUM) {
+						ti_data_index = 0;
+					}
+				}
 			} else {
-				tm_printf((UB*)"[task_publisher] published.\n");
-			}
-			is_mqtt_publishing = TRUE;
-
-			if (!awake_by_request) {
-				publishCount++;
-				if (publishCount > 1) {
-					publishCount = 0;
-				}
+				tm_printf((UB*)"[task_publisher] ti_data_index is invalid(%d).\n", ti_data_index);
 			}
     	} else {
 			tm_printf((UB*)"[task_publisher] not published. (is_mqtt_connected=%s, is_mqttt_publishing)\n",
