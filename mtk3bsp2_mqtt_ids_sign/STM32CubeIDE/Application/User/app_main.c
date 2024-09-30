@@ -86,6 +86,15 @@ LOCAL T_CTSK ctsk_publisher = {	// Task creation information
 	.tskatr		= TA_HLNG | TA_RNG3,
 };
 
+LOCAL void task_reconnector(INT stacd, void *exinf);	// task execution function
+LOCAL ID	tskid_reconnector;	// Task ID number
+LOCAL T_CTSK ctsk_reconnector = {	// Task creation information
+	.itskpri	= 10,
+	.stksz		= 1024,
+	.task		= task_reconnector,
+	.tskatr		= TA_HLNG | TA_RNG3,
+};
+
 LOCAL void cyc_checker(void* exinf);	// Cycle handler execution funcion
 LOCAL ID	cycid_checker; // Cyc ID number
 LOCAL T_CCYC ccyc_checker = {	// Cycle handler creation information
@@ -134,6 +143,7 @@ LOCAL void mtk3bsp2_mqtt_connection_cb(void* arg, mtk3bsp2_mqtt_connection_statu
 	} else {
 		tm_printf((UB*)"mtk3bsp2_mqtt_connection_cb: MQTT client connection failed(%d)\n", status);
 		is_mqtt_connected = FALSE;
+		tk_set_flg(flgid, FLAG_MQTT_DISCONNECTED);
 	}
 }
 
@@ -210,7 +220,7 @@ LOCAL void task_publisher(INT stacd, void *exinf)
 		tm_printf((UB*)"[task_publisher] awaked.\n");
 
     	if (is_mqtt_connected && !is_mqtt_publishing) {
-    		const char* message = "Please send me to latest information";
+    		const char* message = "Please send me to the road information";
     		u8_t qos = 0;
 			u8_t retain = 0;
 
@@ -226,6 +236,22 @@ LOCAL void task_publisher(INT stacd, void *exinf)
 			tm_printf((UB*)"[task_publisher] not published. (is_mqtt_connected=%s, is_mqttt_publishing).\n",
 					is_mqtt_connected ? "true" : "false", is_mqtt_publishing ? "true" : "false");
     	}
+	}
+}
+
+// MQTT Broker に再接続を試みる Task
+LOCAL void task_reconnector(INT stacd, void *exinf)
+{
+	int ret = 0;
+	while(1) {
+		tk_wai_flg(flgid, FLAG_MQTT_DISCONNECTED, TWF_BITCLR, NULL, TMO_FEVR);
+
+		tm_printf((UB*)"[task_reconnector] awaked.\n");
+
+		ret = mtk3bsp2_mqtt_connect(mtk3bsp2_mqtt_connection_cb, Mqtt_Client_Id, 0, NULL);
+		if (ret != 0) {
+			tm_printf((UB*)"mqtt_connect failed(%d)\n", ret);
+		}
 	}
 }
 
@@ -283,6 +309,9 @@ EXPORT INT usermain(void)
 
 	tskid_publisher = tk_cre_tsk(&ctsk_publisher);
 	tk_sta_tsk(tskid_publisher, 0);
+
+	tskid_reconnector = tk_cre_tsk(&ctsk_reconnector);
+	tk_sta_tsk(tskid_reconnector, 0);
 
 	cycid_checker = tk_cre_cyc(&ccyc_checker);
 	tk_sta_cyc(cycid_checker);
