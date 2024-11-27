@@ -32,7 +32,6 @@
 #include "ethernetif.h"
 #include "main.h"
 #include "app_ethernet.h"
-#include "mtk3bsp2_mqtt.h"
 
 int __io_putchar(uint8_t ch)
 {

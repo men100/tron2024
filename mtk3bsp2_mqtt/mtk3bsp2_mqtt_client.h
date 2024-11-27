@@ -1,5 +1,5 @@
-#ifndef __MTK3BSP2_MQTT_H__
-#define __MTK3BSP2_MQTT_H__
+#ifndef __MTK3BSP2_MQTT_CLIENT_H__
+#define __MTK3BSP2_MQTT_CLIENT_H__
 
 typedef enum
 {
@@ -44,4 +44,4 @@ int mtk3bsp2_mqtt_unsubscribe(const char* topic, mtk3bsp2_mqtt_request_cb_t cb, 
 
 int mtk3bsp2_mqtt_publish(const char *topic, const void *payload, u16_t payload_length, u8_t qos, u8_t retain, mtk3bsp2_mqtt_request_cb_t cb, void *arg);
 
-#endif /* __MTK3BSP2_MQTT_H__ */
+#endif /* __MTK3BSP2_MQTT_CLIENT_H__ */
