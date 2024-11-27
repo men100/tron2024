@@ -5,7 +5,7 @@
 #include "main.h"
 #include "ethernetif.h"
 #include "app_ethernet.h"
-#include "mtk3bsp2_mqtt.h"
+#include "mtk3bsp2_mqtt_client.h"
 #include "ecr1264.h"
 
 #define FLAG_USER_BUTTON		0x01

@@ -6,7 +6,7 @@
 #include "main.h"
 #include "ethernetif.h"
 #include "app_ethernet.h"
-#include "mtk3bsp2_mqtt.h"
+#include "mtk3bsp2_mqtt_client.h"
 
 // Broker の IP アドレス
 const char* Mqtt_Broker_Ip_Addr = "192.168.1.72";

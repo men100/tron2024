@@ -2,7 +2,7 @@
 #include <tk/tkernel.h>
 #include <tm/tmonitor.h>
 #include "lwip/apps/mqtt.h"
-#include "mtk3bsp2_mqtt.h"
+#include "mtk3bsp2_mqtt_client.h"
 
 static mqtt_client_t* s_mqtt_client;
 static ip_addr_t s_mqtt_server_ip; // MQTT Broker の IP アドレス
